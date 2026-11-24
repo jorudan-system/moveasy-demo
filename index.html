@@ -307,6 +307,18 @@ h2{color:#0E1A33}
 .mbox{background:#FFFFFF;border-color:#B8862B}.mhead{border-bottom-color:#D3DAE5}.mbody p,.mbody li{color:#1A2233}.mbody h3{color:#7A5512}
 .mbody .sample{color:#A15C00}
 .empty{color:#5A6478}
+
+.certdoc{background:#fff;color:#1A2233;border:1px solid #9AA6B8;border-radius:4px;padding:22px 24px;max-width:560px;font-family:"BIZ UDPMincho","Yu Mincho","Hiragino Mincho ProN",serif;box-shadow:0 6px 18px rgba(14,26,51,.12)}
+.chead{display:flex;justify-content:space-between;font-size:12px;color:#5A6478}
+.ctitle{text-align:center;font-size:20px;margin:14px 0 12px;letter-spacing:.2em;color:#0E1A33}
+.cto{font-size:16px;border-bottom:1px solid #1A2233;display:inline-block;padding:0 6px 2px;margin:4px 0 12px}
+.ctab{width:100%;border-collapse:collapse;font-size:13.5px}
+.ctab th{width:30%;text-align:left;background:#F2F4F8;border:1px solid #C9D2DF;padding:6px 8px;font-weight:700}
+.ctab td{border:1px solid #C9D2DF;padding:6px 8px}
+.cnote{margin:12px 0 4px;font-size:13.5px}
+.cissuer{display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-top:10px;font-size:13px;text-align:right}
+.cstamp{width:56px;height:56px;border:2px solid #C8102E;color:#C8102E;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700}
+@media print{body.printcert *{visibility:hidden}body.printcert .certdoc,body.printcert .certdoc *{visibility:visible}body.printcert .certdoc{position:absolute;left:0;top:0;box-shadow:none}}
 @media (max-width:900px){
   main{grid-template-columns:1fr;grid-template-rows:auto auto}
   .panel{border-right:0;overflow:visible}
@@ -348,6 +360,7 @@ h2{color:#0E1A33}
     <button role="tab" data-tab="direct" aria-selected="false">発着時刻表</button>
     <button role="tab" data-tab="admin" aria-selected="false">お知らせ管理</button>
     <button role="tab" data-tab="verify" aria-selected="false">データ検証</button>
+    <button role="tab" data-tab="cert" aria-selected="false">証明書発行</button>
   </nav>
   <main>
     <div class="panel" id="panel"></div>
@@ -527,7 +540,7 @@ const I18N={
   e_dpick:'乗車・降車の停留所を候補から選んでください。',d_none:(f,t)=>`${f}から${t}へ、乗り換えなしで行けるバスはこの日・時間帯にありません。乗換検索をお試しください。`,d_rev:(t,f)=>`往復切替（${t} → ${f}）`,
   th_dep:'発',th_arr:'着',th_route:'路線・行先',th_fare:'運賃',
   pp_from:'出発に設定',pp_to:'到着に設定',pp_tt:'時刻表を見る',pp_dfrom:'乗車に設定',pp_dto:'降車に設定',pp_poles:n=>`のりば${n}か所`,close:'閉じる',
-  lb_from:'出発',lb_to:'到着',terms:'利用規約',copy:'© 岩手県北自動車株式会社',xfer:'乗換',xferwalk:n=>`乗換（徒歩${n}分）`,n_label:'お知らせ',n_more:n=>n>1?`お知らせ${n}件を見る`:'詳細を見る',n_close:'閉じる',n_urgent:'緊急',tab_admin:'お知らせ管理',tab_verify:'データ点検',attr_net:'路線網図（GTFS-JPから作成）',zall:'全体',badge:v=>`提案用モック｜データ：HUB掲載GTFS-JP（${v}）`},
+  lb_from:'出発',lb_to:'到着',terms:'利用規約',copy:'© 岩手県北自動車株式会社',xfer:'乗換',xferwalk:n=>`乗換（徒歩${n}分）`,n_label:'お知らせ',n_more:n=>n>1?`お知らせ${n}件を見る`:'詳細を見る',n_close:'閉じる',n_urgent:'緊急',tab_admin:'お知らせ管理',tab_verify:'データ点検',tab_cert:'証明書発行',attr_net:'路線網図（GTFS-JPから作成）',zall:'全体',badge:v=>`提案用モック｜データ：HUB掲載GTFS-JP（${v}）`},
  en:{brand:'Northern Iwate Transportation Inc.',sub:'Route & Timetable Search',tab_route:'Route search',tab_tt:'Timetables',tab_direct:'Direct buses',tab_verify:'Data check',
   from:'From',to:'To',ph_from:'Enter a bus stop (e.g. Morioka)',ph_to:'Enter a bus stop',ph_stop:'Enter a bus stop (e.g. Morioka Eki Mae)',
   kana:'A–Z',az:'A–Z',bymap:'On the map',gps:'Near me',swap:'⇅ Swap',swap_aria:'Swap origin and destination',datetime:'Date & time',now:'Now',
@@ -721,7 +734,7 @@ function drawTrip(t,fromK){
   map.fitBounds(ll,{padding:[60,60],maxZoom:15});
 }
 /* ---------- state & UI ---------- */
-const state={lang:'ja',ttPole:null,ttView:'list',dh1:'',dh2:'',tab:'route',rfrom:'',rto:'',dfrom:'',dto:'',tstop:'',date:defaultDate(),time:'',mode:'dep',child:false,sort:'time',results:null,ttSel:null,ttDay:null,direct:null};
+const state={cfrom:'',cto:'',cname:'',cuse:'commute',certRes:null,lang:'ja',ttPole:null,ttView:'list',dh1:'',dh2:'',tab:'route',rfrom:'',rto:'',dfrom:'',dto:'',tstop:'',date:defaultDate(),time:'',mode:'dep',child:false,sort:'time',results:null,ttSel:null,ttDay:null,direct:null};
 state.time='08:00';
 const panel=document.getElementById('panel');
 function stopInput(id,label,ph){
@@ -747,15 +760,16 @@ function bindStopInputs(){
     setTip(L('mappick',pickLabel(b.dataset.m)));});
   panel.querySelectorAll('[data-gps]').forEach(b=>b.onclick=()=>gps(b.dataset.gps));
 }
-const pickLabel=id=>L({rfrom:'from',rto:'to',dfrom:'d_from',dto:'d_to',tstop:'stop'}[id]);
+const pickLabel=id=>({cfrom:'乗車停留所',cto:'降車停留所'}[id])||L({rfrom:'from',rto:'to',dfrom:'d_from',dto:'d_to',tstop:'stop'}[id]);
 function refreshSel(){
   if(!map)return;const mk=(n,text,color,fg)=>{const x=NAMES.get(n);return x?{lat:x.lat,lon:x.lon,text,color,fg}:null;};let s=[];
   if(state.tab==='route')s=[mk(state.rfrom,L('lb_from')+' '+NM(state.rfrom),'#D7263D'),mk(state.rto,L('lb_to')+' '+NM(state.rto),'#1E6FD9')];
   else if(state.tab==='tt')s=[mk(state.tstop,NM(state.tstop),'#E8B64A','#0C1424')];
   else if(state.tab==='direct')s=[mk(state.dfrom,L('d_from')+' '+NM(state.dfrom),'#D7263D'),mk(state.dto,L('d_to')+' '+NM(state.dto),'#1E6FD9')];
+  else if(state.tab==='cert')s=[mk(state.cfrom,'乗車 '+state.cfrom,'#D7263D'),mk(state.cto,'降車 '+state.cto,'#1E6FD9')];
   map.setSel(s.filter(Boolean));map.setCand(null);
 }
-function focusSel(){if(!map)return;const ids=state.tab==='route'?['rfrom','rto']:state.tab==='direct'?['dfrom','dto']:['tstop'];const pts=ids.map(i=>NAMES.get(state[i])).filter(Boolean).map(n=>[n.lat,n.lon]);
+function focusSel(){if(!map)return;const ids=state.tab==='route'?['rfrom','rto']:state.tab==='direct'?['dfrom','dto']:state.tab==='cert'?['cfrom','cto']:['tstop'];const pts=ids.map(i=>NAMES.get(state[i])).filter(Boolean).map(n=>[n.lat,n.lon]);
   if(pts.length===1)map.setView(pts[0],Math.max(map.getZoom(),14));else if(pts.length>1)map.fitBounds(pts,{padding:[90,90],maxZoom:14});}
 function setPick(id,name){
   state[id]=name;const inp=document.getElementById(id);if(inp)inp.value=NM(name);
@@ -1072,6 +1086,56 @@ function bindAdminForm(n){
   $('nf-cancel').onclick=()=>{state.nedit=null;renderAdmin();};
   preview();
 }
+
+/* ---------- 事業者向け：運賃・距離証明書の発行（モック） ---------- */
+function renderCert(){
+  panel.innerHTML=`<section class="noprint"><h2>運賃・距離証明書の発行</h2>
+  <p class="note" style="margin-top:-6px">窓口でのお申し出に、区間を選ぶだけで証明書を作成・印刷できます。検索と同じエンジン・同じデータ（GTFS-JP）で運賃と距離を算出するため、別のシステムは不要です。</p>
+  ${stopInput('cfrom','乗車停留所','停留所名・読みを入力')}${stopInput('cto','降車停留所','停留所名・読みを入力')}
+  <div class="field"><label>ご利用日・用途・宛名</label><div class="row">${dateField()}
+   <select id="cuse" aria-label="用途"><option value="commute">通勤</option><option value="other">その他（運賃・距離のみ）</option></select>
+   <input id="cname" placeholder="宛名（例：岩手 太郎）" style="padding:9px 10px;border:1.5px solid #C9D2DF;border-radius:8px;min-width:12em" value="${esc(state.cname||'')}"></div></div>
+  <button class="primary" id="cgo" type="button">証明書を作成する</button></section><section id="cres"></section>`;
+  bindStopInputs();bindCommon();
+  document.getElementById('cuse').value=state.cuse||'commute';
+  document.getElementById('cuse').onchange=e=>state.cuse=e.target.value;
+  document.getElementById('cname').oninput=e=>state.cname=e.target.value;
+  document.getElementById('cgo').onclick=doCert;
+  if(state.certRes)drawCert();
+}
+function doCert(){
+  const f=state.cfrom.trim(),t=state.cto.trim(),res=document.getElementById('cres');
+  if(!NAMES.has(f)||!NAMES.has(t)||f===t){res.innerHTML='<p class="err">乗車・降車の停留所を候補から選んでください。</p>';return;}
+  const its=searchRoutes(f,t,state.date,'first',0).concat(searchRoutes(f,t,state.date,'dep',12*60));
+  const ok=its.filter(i=>i.fare!=null);
+  if(!ok.length){res.innerHTML='<p class="err">この区間・日付で運賃を算出できる経路が見つかりません。</p>';return;}
+  ok.sort((a,b)=>a.fare-b.fare||a.distM-b.distM);
+  state.certRes={f,t,it:ok[0],no:'R'+state.date.replace(/-/g,'').slice(2)+'-'+String(Math.floor(Math.random()*9000)+1000)};
+  drawCert();
+}
+function drawCert(){
+  const {f,t,it,no}=state.certRes,res=document.getElementById('cres');
+  const bus=it.legs.filter(l=>l.type==='bus');
+  const routeTxt=bus.map(l=>`${R[T[l.trip].route].name}（${S[l.from].name} → ${S[l.to].name}）`).join('<br>');
+  const tk=teikiIt(it);const today=new Date();const issued=`${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
+  const use=state.cuse||'commute';
+  res.innerHTML=`<div class="row noprint" style="margin-bottom:8px"><button class="ghost" id="cprint" type="button">印刷・PDF保存</button><span class="note">提案用のサンプル様式です</span></div>
+  <div class="certdoc" id="certdoc">
+   <div class="chead"><div class="cno">No. ${esc(no)}</div><div class="cdate">発行日 ${issued}</div></div>
+   <h3 class="ctitle">運 賃 ・ 距 離 証 明 書</h3>
+   <p class="cto">${esc(state.cname||'　　　　　　　')}　様</p>
+   <table class="ctab"><tr><th>区間</th><td>${esc(f)} → ${esc(t)}</td></tr>
+    <tr><th>経路</th><td>${routeTxt}${bus.length>1?`<br><small>（乗継 ${bus.length-1}回）</small>`:''}</td></tr>
+    <tr><th>片道運賃（大人）</th><td><b>${it.fare.toLocaleString('ja-JP')}円</b></td></tr>
+    <tr><th>乗車距離</th><td><b>${(bus.reduce((s,l)=>s+T[l.trip].dist[l.ai]-T[l.trip].dist[l.bi],0)/1000).toFixed(1)}km</b>${it.walk?`<small>（徒歩の乗継 約${it.walk}分を除く）</small>`:''}</td></tr>
+    ${use==='commute'&&tk?`<tr><th>通勤定期運賃</th><td>1か月 ${tk.m1.toLocaleString('ja-JP')}円　／　3か月 ${tk.m3.toLocaleString('ja-JP')}円　／　6か月 ${tk.m6.toLocaleString('ja-JP')}円</td></tr>`:''}
+    <tr><th>適用日</th><td>${state.date.replace(/-/g,'/')} 現在の運賃</td></tr></table>
+   <p class="cnote">上記のとおり証明します。</p>
+   <div class="cissuer"><div><b>岩手県北自動車株式会社</b><br>（所在地・連絡先を記載）</div><div class="cstamp">印</div></div>
+  </div>`;
+  document.getElementById('cprint').onclick=()=>{document.body.classList.add('printcert');window.print();setTimeout(()=>document.body.classList.remove('printcert'),500);};
+  if(map)drawItinerary(it);
+}
 /* ---------- tab: verify ---------- */
 let verifyCache=null;
 function computeVerify(){
@@ -1139,7 +1203,7 @@ function ttNotice(){const head=panel.querySelector('.tthead');if(!head)return;co
 function show(tab){
   state.tab=tab;document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));
   layerRoute&&layerRoute.clearLayers();setTip('');setTimeout(refreshSel,0);
-  if(tab==='route')renderRoute();else if(tab==='tt')renderTT();else if(tab==='direct')renderDirect();else if(tab==='admin')renderAdmin();else renderVerify();
+  if(tab==='route')renderRoute();else if(tab==='tt')renderTT();else if(tab==='direct')renderDirect();else if(tab==='admin')renderAdmin();else if(tab==='cert')renderCert();else renderVerify();
   panel.scrollTop=0;
 }
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>show(b.dataset.tab));
@@ -1147,7 +1211,7 @@ function applyLang(){
   document.documentElement.lang=state.lang==='zh'?'zh-Hant':state.lang;
   document.getElementById('brand').textContent=L('brand');document.getElementById('subt').textContent=L('subt')||L('sub');
   document.getElementById('badge').textContent=L('badge',FV);
-  const isAdm=t=>t==='verify'||t==='admin';
+  const isAdm=t=>t==='verify'||t==='admin'||t==='cert';
   document.querySelectorAll('nav.tabs button').forEach(b=>{b.textContent=L('tab_'+b.dataset.tab);b.hidden=state.adminMode?!isAdm(b.dataset.tab):isAdm(b.dataset.tab);});
   document.body.classList.toggle('adminmode',!!state.adminMode);
   const ab=document.getElementById('admbtn');ab.textContent='利用者画面に戻る';ab.hidden=!state.adminMode;const al=document.getElementById('admlink');al.hidden=!!state.adminMode||state.lang!=='ja';document.getElementById('termsbtn').textContent=L('terms');document.getElementById('copyr').textContent=L('copy');
